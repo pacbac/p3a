@@ -30,11 +30,9 @@ int main(int argc, char** argv){
   if(pread(fd, sb, sizeof(struct ext2_super_block), EXT2_MIN_BLOCK_SIZE) == -1)
     print_err(strerror(errno));
 
-  if(pread(fd, gd, sizeof(struct ext2_group_desc), EXT2_MIN_BLOCK_SIZE*2) == -1)
-    print_err(strerror(errno));
-
   analyze_superblock(sb);
   analyze_groupdesc(sb, gd);
+  
   
   return 0;
 }
@@ -54,6 +52,9 @@ void analyze_groupdesc(struct ext2_super_block* sb, struct ext2_group_desc* gd){
   __u32 nGroups = ceil(((double)sb->s_blocks_count)/sb->s_blocks_per_group);
   __u32 i;
   for(i = 0; i < nGroups; i++){
+    if(pread(fd, gd, sizeof(struct ext2_group_desc), 1024 + EXT2_MIN_BLOCK_SIZE + i*sizeof(struct ext2_group_desc)) == -1)
+      print_err(strerror(errno));
+    
     __u32 totalBlocks = (sb->s_blocks_count % sb->s_blocks_per_group) ? sb->s_blocks_count % sb->s_blocks_per_group : sb->s_blocks_per_group; // if expression > 0, then it is the last block (remainder)
     __u32 totalInodes = (sb->s_inodes_count % sb->s_inodes_per_group) ? sb->s_inodes_count % sb->s_inodes_per_group : sb->s_inodes_per_group; // if expression > 0, then it is the last block (remainder)
     printf("GROUP,%d,%d,%d,%d,%d,%d,%d,%d\n",
