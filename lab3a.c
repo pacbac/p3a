@@ -18,6 +18,7 @@ __u32 first_data_block;
 
 void analyze_superblock(struct ext2_super_block*);
 void analyze_groupdesc(struct ext2_super_block*, struct ext2_group_desc*);
+void analyze_fbentries(__u32, __u32);
 void print_err(char* err){
   fprintf(stderr, "%s\n", err);
   exit(2);
@@ -79,12 +80,12 @@ void analyze_groupdesc(struct ext2_super_block* sb, struct ext2_group_desc* gd){
 	    gd->bg_inode_bitmap,
 	    gd->bg_inode_table);
 
-    analyze_fbentries(i);
+    analyze_fbentries(gd->bg_block_bitmap, i);
   }
 
 }
 
-void analyze_fbentries(__32 group) {
+void analyze_fbentries(__u32 block_bitmap, __u32 group) {
   char buf[block_size];
   pread(fd, buf, block_size, block_bitmap * block_size);
   __u32 index = first_data_block + (group * blocks_per_group);
@@ -94,7 +95,7 @@ void analyze_fbentries(__32 group) {
     char curr = buf[i];
     for (j = 0; j < 8; j++) {
       if (!(curr & 1)) {
-        printf("BFREE,%d", index);
+        printf("BFREE,%d\n", index);
       }
       curr >>= 1;
       index++;
