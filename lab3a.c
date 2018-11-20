@@ -78,6 +78,8 @@ void analyze_groupdesc(struct ext2_super_block* sb, struct ext2_group_desc* gd){
 	    gd->bg_block_bitmap,
 	    gd->bg_inode_bitmap,
 	    gd->bg_inode_table);
+
+    analyze_fbentries(i);
   }
 
 }
