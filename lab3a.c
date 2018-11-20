@@ -23,6 +23,7 @@ void analyze_groupdesc(struct ext2_group_desc*);
 void analyze_fbentries(__u32, __u32);
 void analyze_fientries(__u32, __u32, __u32);
 void analyze_inodesummary(__u32, __u32, __u32);
+void analyze_dir(__u32, __u32);
 void print_err(char* err){
   fprintf(stderr, "%s\n", err);
   exit(2);
@@ -179,9 +180,29 @@ void analyze_inodesummary(__u32 inode_table, __u32 inodeIndex, __u32 inode){
     // scan all the direct blocks
     for(i = 0; i < EXT2_N_BLOCKS; i++)
       printf(",%d", inodeStruct->i_block[i]);
-
-    inodeStruct->i_block[EXT2_IND_BLOCK];
+    printf("\n");
+    
+    for(i = 0; i < EXT2_NDIR_BLOCKS; i++)
+      if(type == 'd' && inodeStruct->i_block[i])
+	analyze_dir(inode, inodeStruct->i_block[i]);
   }
-  printf("\n");
   free(inodeStruct);
+}
+
+void analyze_dir(__u32 inode, __u32 block){
+  struct ext2_dir_entry* dir = malloc(sizeof(struct ext2_dir_entry));
+  __u32 i;
+  for(i = 0; i < block_size; i += dir->rec_len){
+    pread(fd, dir, sizeof(struct ext2_dir_entry), block*block_size + i);
+    if(dir->inode)
+      printf("DIRENT,%d,%d,%d,%d,%d,'%s'\n",
+	     inode,
+	     i,
+	     dir->inode,
+	     dir->rec_len,
+	     dir->name_len,
+	     dir->name);
+  }
+
+  free(dir);
 }
