@@ -82,4 +82,20 @@ void analyze_groupdesc(struct ext2_super_block* sb, struct ext2_group_desc* gd){
 
 }
 
-void analyze_fbentries()
+void analyze_fbentries(__32 group) {
+  char buf[block_size];
+  pread(fd, buf, block_size, block_bitmap * block_size);
+  __u32 index = first_data_block + (group * blocks_per_group);
+
+  __u32 i, j;
+  for (i = 0; i < block_size; i++) {
+    char curr = buf[i];
+    for (j = 0; j < 8; j++) {
+      if (!(curr & 1)) {
+        printf("BFREE,%d", index);
+      }
+      curr >>= 1;
+      index++;
+    }
+  }
+}
