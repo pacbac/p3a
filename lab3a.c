@@ -17,8 +17,9 @@ __u32	inodes_per_group;	/* # Inodes per group */
 __u32 first_data_block;
 
 void analyze_superblock(struct ext2_super_block*);
-void analyze_groupdesc(struct ext2_super_block*, struct ext2_group_desc*);
+void analyze_groupdesc(struct ext2_group_desc*);
 void analyze_fbentries(__u32, __u32);
+void analyze_fientries(__u32, __u32);
 void print_err(char* err){
   fprintf(stderr, "%s\n", err);
   exit(2);
@@ -39,7 +40,7 @@ int main(int argc, char** argv){
     print_err(strerror(errno));
 
   analyze_superblock(sb);
-  analyze_groupdesc(sb, gd);
+  analyze_groupdesc(gd);
   return 0;
 }
 
@@ -61,7 +62,7 @@ void analyze_superblock(struct ext2_super_block* sb){
 	  sb->s_first_ino);
 }
 
-void analyze_groupdesc(struct ext2_super_block* sb, struct ext2_group_desc* gd){
+void analyze_groupdesc(struct ext2_group_desc* gd){
   __u32 nGroups = ceil(((double)blocks_count)/blocks_per_group);
   __u32 i;
   for(i = 0; i < nGroups; i++){
@@ -81,13 +82,15 @@ void analyze_groupdesc(struct ext2_super_block* sb, struct ext2_group_desc* gd){
 	    gd->bg_inode_table);
 
     analyze_fbentries(gd->bg_block_bitmap, i);
+    analyze_fientries(gd->bg_inode_bitmap, i);
   }
 
 }
 
 void analyze_fbentries(__u32 block_bitmap, __u32 group) {
   char buf[block_size];
-  pread(fd, buf, block_size, block_bitmap * block_size);
+  if(pread(fd, buf, block_size, block_bitmap * block_size) < 0)
+    print_err(strerror(errno));
   __u32 index = first_data_block + (group * blocks_per_group);
 
   __u32 i, j;
@@ -99,6 +102,26 @@ void analyze_fbentries(__u32 block_bitmap, __u32 group) {
       }
       curr >>= 1;
       index++;
+    }
+  }
+}
+
+void analyze_fientries(__u32 inode_bitmap, __u32 group){
+  __u32 bitmap_size = inodes_per_group/8;
+  char bitmap[bitmap_size];
+  if(pread(fd, bitmap, bitmap_size, inode_bitmap * block_size) < 0)
+    print_err(strerror(errno));
+
+  __u32 inode_block = group * inodes_per_group + 1;
+  __u32 i;
+  for(i = 0; i < bitmap_size; i++){
+    char byte = bitmap[i];
+    __u32 j;
+    for(j = 0; j < 8; j++){ // scan through entire byte for 0's = free/available blocks
+      if(!(byte & 1))
+	printf("IFREE,%d\n", inode_block);
+      byte >>= 1;
+      inode_block++;
     }
   }
 }
