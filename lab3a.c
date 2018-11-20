@@ -160,7 +160,7 @@ void analyze_inodesummary(__u32 inode_table, __u32 inodeIndex, __u32 inode){
   strftime(inodeMod, 25, "%m/%d/%y %H:%M:%S", gmtime(&mtime));
   strftime(inodeAccess, 25, "%m/%d/%y %H:%M:%S", gmtime(&atime));
   
-  printf("INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d\n",
+  printf("INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d",
 	 inode,
 	 type,
 	 (inodeStruct->i_mode & 0xFFF),
@@ -172,6 +172,16 @@ void analyze_inodesummary(__u32 inode_table, __u32 inodeIndex, __u32 inode){
 	 inodeAccess,
 	 inodeStruct->i_size,
 	 inodeStruct->i_blocks);
-  
+
+  // if file or directory or symbolic link with size > 60
+  if(type == 'f' || type == 'd' || (type == 's' && inodeStruct->i_size > 60)){
+    __u32 i;
+    // scan all the direct blocks
+    for(i = 0; i < EXT2_N_BLOCKS; i++)
+      printf(",%d", inodeStruct->i_block[i]);
+
+    inodeStruct->i_block[EXT2_IND_BLOCK];
+  }
+  printf("\n");
   free(inodeStruct);
 }
