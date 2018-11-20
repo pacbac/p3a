@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include "ext2_fs.h"
 #include <math.h>
+#include <time.h>
+#include <stdint.h>
 
 static int fd = 0;
 __u32	blocks_count;		/* Blocks count */
@@ -19,7 +21,8 @@ __u32 first_data_block;
 void analyze_superblock(struct ext2_super_block*);
 void analyze_groupdesc(struct ext2_group_desc*);
 void analyze_fbentries(__u32, __u32);
-void analyze_fientries(__u32, __u32);
+void analyze_fientries(__u32, __u32, __u32);
+void analyze_inodesummary(__u32, __u32, __u32);
 void print_err(char* err){
   fprintf(stderr, "%s\n", err);
   exit(2);
@@ -41,6 +44,9 @@ int main(int argc, char** argv){
 
   analyze_superblock(sb);
   analyze_groupdesc(gd);
+
+  free(gd);
+  free(sb);
   return 0;
 }
 
@@ -82,7 +88,7 @@ void analyze_groupdesc(struct ext2_group_desc* gd){
 	    gd->bg_inode_table);
 
     analyze_fbentries(gd->bg_block_bitmap, i);
-    analyze_fientries(gd->bg_inode_bitmap, i);
+    analyze_fientries(gd->bg_inode_bitmap, gd->bg_inode_table, i);
   }
 
 }
@@ -106,7 +112,7 @@ void analyze_fbentries(__u32 block_bitmap, __u32 group) {
   }
 }
 
-void analyze_fientries(__u32 inode_bitmap, __u32 group){
+void analyze_fientries(__u32 inode_bitmap, __u32 inode_table, __u32 group){
   __u32 bitmap_size = inodes_per_group/8;
   char bitmap[bitmap_size];
   if(pread(fd, bitmap, bitmap_size, inode_bitmap * block_size) < 0)
@@ -120,8 +126,52 @@ void analyze_fientries(__u32 inode_bitmap, __u32 group){
     for(j = 0; j < 8; j++){ // scan through entire byte for 0's = free/available blocks
       if(!(byte & 1))
 	printf("IFREE,%d\n", inode_block);
+      else
+	analyze_inodesummary(inode_table, inode_block - (group * inodes_per_group + 1), inode_block);
       byte >>= 1;
       inode_block++;
     }
   }
+}
+
+void analyze_inodesummary(__u32 inode_table, __u32 inodeIndex, __u32 inode){
+  struct ext2_inode* inodeStruct = malloc(sizeof(struct ext2_inode));
+  pread(fd, inodeStruct, sizeof(struct ext2_inode), inode_table*block_size + inodeIndex*sizeof(struct ext2_inode));
+  if(!inodeStruct->i_mode || !inodeStruct->i_links_count){
+    free(inodeStruct);
+    return;
+  }
+  
+  char type;
+  if((inodeStruct->i_mode & 0xA000) == 0xA000)
+    type = 's';
+  else if((inodeStruct->i_mode & 0x8000) == 0x8000)
+    type = 'f';
+  else if((inodeStruct->i_mode & 0x4000) == 0x4000)
+    type = 'd';
+  else
+    type = '?';
+
+  char inodeChange[25], inodeMod[25], inodeAccess[25];
+  time_t ctime = inodeStruct->i_ctime;
+  time_t mtime = inodeStruct->i_mtime;
+  time_t atime = inodeStruct->i_atime;
+  strftime(inodeChange, 25, "%m/%d/%y %H:%M:%S", gmtime(&ctime));
+  strftime(inodeMod, 25, "%m/%d/%y %H:%M:%S", gmtime(&mtime));
+  strftime(inodeAccess, 25, "%m/%d/%y %H:%M:%S", gmtime(&atime));
+  
+  printf("INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d\n",
+	 inode,
+	 type,
+	 (inodeStruct->i_mode & 0xFFF),
+	 inodeStruct->i_uid,
+	 inodeStruct->i_gid,
+	 inodeStruct->i_links_count,
+	 inodeChange,
+	 inodeMod,
+	 inodeAccess,
+	 inodeStruct->i_size,
+	 inodeStruct->i_blocks);
+  
+  free(inodeStruct);
 }
