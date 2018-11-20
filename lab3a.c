@@ -50,7 +50,7 @@ void analyze_superblock(struct ext2_super_block* sb){
   inode_size = sb->s_inode_size;
   blocks_per_group = sb->s_blocks_per_group;
   inodes_per_group = sb->s_inodes_per_group;
-  first_data_block = sb->s_first_ino;
+  first_data_block = sb->s_first_data_block;
   printf("SUPERBLOCK,%d,%d,%d,%d,%d,%d,%d\n",
 	  blocks_count,
 	  inodes_count,
@@ -58,7 +58,7 @@ void analyze_superblock(struct ext2_super_block* sb){
 	  inode_size,
 	  blocks_per_group,
 	  inodes_per_group,
-	  first_data_block);
+	  sb->s_first_ino);
 }
 
 void analyze_groupdesc(struct ext2_super_block* sb, struct ext2_group_desc* gd){
