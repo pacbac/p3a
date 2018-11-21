@@ -1,6 +1,6 @@
-#NAME: Clayton Chu and George Zhang
-#ID: 104906833
-#EMAIL: claytonchu99@gmail.com
+#NAME: Clayton Chu, George Zhang
+#ID: 104906833, 504993197
+#EMAIL: claytonchu99@gmail.com, georgezhang@ucla.edu
 
 CC=gcc
 FLAGS=-g -Wall -Wextra -lm
