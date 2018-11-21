@@ -24,6 +24,7 @@ void analyze_fbentries(__u32, __u32);
 void analyze_fientries(__u32, __u32, __u32);
 void analyze_inodesummary(__u32, __u32, __u32);
 void analyze_dir(__u32, __u32);
+void analyze_indirect(__u32, int, __u32, __u32);
 void print_err(char* err){
   fprintf(stderr, "%s\n", err);
   exit(2);
@@ -34,8 +35,10 @@ int main(int argc, char** argv){
     fprintf(stderr, "Usage: lab3a [img file]\n");
     exit(EXIT_FAILURE);
   }
-  if((fd = open(argv[1], O_RDONLY)) < 0)
-    print_err(strerror(errno));
+  if((fd = open(argv[1], O_RDONLY)) < 0){
+    fprintf(stderr, "%s\n", strerror(errno));
+    exit(EXIT_FAILURE);
+  }
 
   struct ext2_super_block* sb = malloc(sizeof(struct ext2_super_block));
   struct ext2_group_desc* gd = malloc(sizeof(struct ext2_group_desc));
@@ -185,6 +188,13 @@ void analyze_inodesummary(__u32 inode_table, __u32 inodeIndex, __u32 inode){
     for(i = 0; i < EXT2_NDIR_BLOCKS; i++)
       if(type == 'd' && inodeStruct->i_block[i])
 	analyze_dir(inode, inodeStruct->i_block[i]);
+
+    if(inodeStruct->i_block[EXT2_IND_BLOCK])
+      analyze_indirect(inode, 1, inodeStruct->i_block[EXT2_IND_BLOCK], 12);
+    if(inodeStruct->i_block[EXT2_DIND_BLOCK])
+      analyze_indirect(inode, 2, inodeStruct->i_block[EXT2_DIND_BLOCK], 268);
+    if(inodeStruct->i_block[EXT2_TIND_BLOCK])
+      analyze_indirect(inode, 3, inodeStruct->i_block[EXT2_TIND_BLOCK], 65536 + 268);
   }
   free(inodeStruct);
 }
@@ -205,4 +215,31 @@ void analyze_dir(__u32 inode, __u32 block){
   }
 
   free(dir);
+}
+
+void analyze_indirect(__u32 inode, int lvl, __u32 block, __u32 offset){
+  __u32 numBlocks = block_size/sizeof(__u32);
+  __u32 blockArr[numBlocks];
+  bzero(blockArr, numBlocks);
+  pread(fd, blockArr, block_size, 1024 + (block - 1) * block_size);
+  __u32 i;
+  for(i = 0; i < numBlocks; i++){
+    if(blockArr[i]){ // if block referenced is valid
+      printf("INDIRECT,%d,%d,%d,%d,%d\n",
+	     inode,
+	     lvl,
+	     offset + i,
+	     block,
+	     blockArr[i]);
+
+      if(lvl == 2){
+	// recursion down a level
+	analyze_indirect(inode, lvl-1, blockArr[i], offset);
+	offset += 256; // update offset
+      } else if(lvl == 3){
+	analyze_indirect(inode, lvl-1, blockArr[i], offset);
+	offset += 65536;
+      }
+    }
+  }
 }
